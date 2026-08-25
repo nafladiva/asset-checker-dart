@@ -84,6 +84,7 @@ class CandidateExpression {
     this.via,
     this.isLoadArgument = false,
     this.source,
+    this.explicitPackage,
   });
 
   final ConstExpr expr;
@@ -101,6 +102,14 @@ class CandidateExpression {
 
   /// Original source text, used in messages about unresolvable loads.
   final String? source;
+
+  /// The `package:` argument of an asset load, as in
+  /// `Image.asset('assets/logo.png', package: 'design_system')`.
+  ///
+  /// Flutter resolves that against the named package's bundle, so it must win
+  /// over the package the calling file happens to live in — otherwise a shared
+  /// asset looks unused while the app's own same-named file looks used.
+  final String? explicitPackage;
 }
 
 /// A bundle load whose path argument is a parameter of the enclosing function.

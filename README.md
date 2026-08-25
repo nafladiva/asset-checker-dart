@@ -127,8 +127,7 @@ resolves:
 - **Platform folders** — `android/`, `ios/`, `web/`, `macos/`, `windows/`,
   `linux/` are scanned for asset paths so launch images, splash screens and
   `index.html` references count.
-- **Monorepos** — every `pubspec.yaml` in the tree becomes a package.
-  `packages/design/assets/star.png` resolves against the package that owns it.
+- **Modular projects** — see below.
 
 ### Dynamic paths
 
@@ -173,6 +172,41 @@ are also excluded from similarity comparison, since looking identical to their
 parent is the entire point.
 
 ---
+
+## Modular and monorepo projects
+
+Discovery is by pubspec, not by a hardcoded folder name: every `pubspec.yaml`
+in the tree becomes a package, so `packages/`, `features/`, `modules/` and
+`apps/` layouts all work without configuration. Dart source is scanned in every
+package, so a reference from the app keeps a shared package's asset alive.
+
+Three things specific to modular projects are handled explicitly:
+
+**Cross-package paths.** `Image.asset('packages/design_system/assets/logo.png')`
+resolves against `design_system`, not the calling package.
+
+**The `package:` argument.** `Image.asset('assets/logo.png', package: 'design_system')`
+is resolved against the named package's bundle. This matters when the app and a
+shared package both contain a file at the same package-relative path — without
+it the audit resolves to the app's own copy and reports the shared one as
+unused, which is exactly backwards.
+
+**Per-package flutter_gen.** Every package generates its own `class Assets`, so
+generated classes are merged across packages instead of the last one parsed
+overwriting the rest. Note that generated accessors are read from the file
+itself, including the bare `$AssetsImagesGen()` constructor call that the
+unresolved parser reports as a method invocation — resolution does not rely on
+guessing names from disk when the file is present.
+
+Two limits worth knowing:
+
+- A package outside the project root (`path: ../../shared` pointing above
+  `--path`) is not scanned, so its assets are invisible. Point `--path` at the
+  common ancestor.
+- If two packages generate the same accessor name for different paths, the
+  first parsed wins. The resolved path is then matched across every package, so
+  a genuine clash resolves toward "used" rather than reporting a live asset as
+  unused.
 
 ## Configuration
 

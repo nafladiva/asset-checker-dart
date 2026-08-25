@@ -234,17 +234,38 @@ class CodeScanner {
           final expr = _genBodyExpr(member.body);
           if (expr != null) members[member.name.lexeme] = expr;
         } else if (member is FieldDeclaration) {
+          // The declared type is the most reliable signal for a nested
+          // accessor: `static const $AssetsImagesGen images = ...`.
+          final NamedType? declaredType = member.fields.type is NamedType
+              ? member.fields.type! as NamedType
+              : null;
+
           for (final VariableDeclaration variable in member.fields.variables) {
             final initializer = variable.initializer;
-            if (initializer == null) continue;
-            final expr = _genValueExpr(initializer);
-            if (expr != null) members[variable.name.lexeme] = expr;
+            final expr =
+                initializer == null ? null : _genValueExpr(initializer);
+            if (expr != null) {
+              members[variable.name.lexeme] = expr;
+            } else if (declaredType != null) {
+              members[variable.name.lexeme] =
+                  ClassRefExpr(declaredType.name2.lexeme);
+            }
           }
         }
       }
 
-      if (members.isNotEmpty) {
-        out[declaration.name.lexeme] = members;
+      if (members.isEmpty) continue;
+
+      // Merge rather than overwrite. In a modular project every package
+      // generates its own `class Assets`, so keying by class name alone would
+      // let the last package parsed erase all the others. First definition of
+      // a member wins; the resolved path is package-relative and matched
+      // across every package afterwards, so a genuine clash resolves toward
+      // "used" rather than silently reporting a live asset as unused.
+      final target =
+          out.putIfAbsent(declaration.name.lexeme, () => <String, ConstExpr>{});
+      for (final MapEntry<String, ConstExpr> entry in members.entries) {
+        target.putIfAbsent(entry.key, () => entry.value);
       }
     }
   }
@@ -279,8 +300,23 @@ class CodeScanner {
       for (final Expression argument in expression.argumentList.arguments) {
         if (argument is SimpleStringLiteral) return LiteralExpr(argument.value);
       }
+      // Without type resolution the parser reports `$AssetsImagesGen()` as a
+      // method invocation, since it cannot know the identifier names a class.
+      // Only an explicit `const`/`new` produces InstanceCreationExpression, so
+      // flutter_gen's root `Assets` class reaches us in this form.
+      final name = expression.methodName.name;
+      if (_looksLikeTypeName(name)) return ClassRefExpr(name);
     }
     return null;
+  }
+
+  /// Constructor-style naming: flutter_gen emits `$AssetsImagesGen`, and Dart
+  /// types are conventionally capitalised.
+  bool _looksLikeTypeName(String name) {
+    if (name.isEmpty) return false;
+    if (name.startsWith(r'$')) return true;
+    final first = name[0];
+    return first.toUpperCase() == first && first.toLowerCase() != first;
   }
 }
 
@@ -444,6 +480,7 @@ class _AssetAstVisitor extends RecursiveAstVisitor<void> {
     final Expression first = positional.first;
     final source = _truncate(node.toSource());
     _capturedOffsets.add(first.offset);
+    final explicitPackage = _packageArgument(arguments);
 
     if (first is SimpleIdentifier) {
       final parameterIndex = _enclosingParameterIndex(node, first.name);
@@ -467,7 +504,19 @@ class _AssetAstVisitor extends RecursiveAstVisitor<void> {
       kind: ReferenceKind.literal,
       isLoadArgument: true,
       source: source,
+      explicitPackage: explicitPackage,
     ));
+  }
+
+  /// The literal value of a `package:` named argument, if present.
+  String? _packageArgument(ArgumentList arguments) {
+    for (final Expression argument in arguments.arguments) {
+      if (argument is! NamedExpression) continue;
+      if (argument.name.label.name != 'package') continue;
+      final Expression value = argument.expression;
+      if (value is SimpleStringLiteral) return value.value;
+    }
+    return null;
   }
 
   int? _enclosingParameterIndex(AstNode node, String name) {

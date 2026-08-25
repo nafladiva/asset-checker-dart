@@ -202,6 +202,7 @@ class ReferenceResolver {
         candidate.packageName,
         candidate.kind,
         candidate.via,
+        explicitPackage: candidate.explicitPackage,
       );
       return;
     }
@@ -300,9 +301,11 @@ class ReferenceResolver {
     Occurrence occurrence,
     String? fromPackage,
     ReferenceKind kind,
-    String? via,
-  ) {
-    final matches = _match(value, fromPackage);
+    String? via, {
+    String? explicitPackage,
+  }) {
+    final matches =
+        _match(value, fromPackage, explicitPackage: explicitPackage);
     final reference = AssetReference(
       value: value,
       kind: kind,
@@ -435,7 +438,11 @@ class ReferenceResolver {
 
   // ----------------------------------------------------------------- matching
 
-  List<AssetFile> _match(String rawValue, String? fromPackage) {
+  List<AssetFile> _match(
+    String rawValue,
+    String? fromPackage, {
+    String? explicitPackage,
+  }) {
     final value = normalizeAssetPath(rawValue);
     if (value.isEmpty) return const <AssetFile>[];
 
@@ -444,6 +451,14 @@ class ReferenceResolver {
       return _byPackageAndPath[
               '${packageReference.package}|${packageReference.path}'] ??
           const <AssetFile>[];
+    }
+
+    // An explicit `package:` argument names the owning bundle, so it outranks
+    // the package the calling file lives in. Without this, an app referencing
+    // a shared package's asset resolves to its own same-named file instead.
+    if (explicitPackage != null) {
+      final owned = _byPackageAndPath['$explicitPackage|$value'];
+      if (owned != null && owned.isNotEmpty) return owned;
     }
 
     if (fromPackage != null) {

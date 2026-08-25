@@ -64,8 +64,7 @@ class AssetGuardConfig {
       try {
         compiled.add(Glob(pattern, context: p.posix));
       } on FormatException catch (e) {
-        throw ConfigException(
-            'Invalid ignore glob "$pattern": ${e.message}');
+        throw ConfigException('Invalid ignore glob "$pattern": ${e.message}');
       }
     }
     return List<Glob>.unmodifiable(compiled);
