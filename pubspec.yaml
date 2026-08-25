@@ -1,0 +1,26 @@
+name: asset_guard
+description: >-
+  Audits a Flutter project's assets for unused, missing, duplicated and
+  near-duplicate files. Pure Dart, runs locally and in CI.
+version: 0.1.0
+repository: https://github.com/nafladiva/asset_guard
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  analyzer: ^6.4.1
+  args: ^2.5.0
+  collection: ^1.18.0
+  crypto: ^3.0.3
+  glob: ^2.1.2
+  image: ^4.2.0
+  path: ^1.9.0
+  yaml: ^3.1.2
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.25.0
+
+executables:
+  asset_guard: asset_guard

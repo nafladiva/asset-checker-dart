@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart pub *)",
+      "Bash(dart analyze *)",
+      "Bash(dart test *)",
+      "Bash(python3 -)",
+      "Bash(dart run *)",
+      "Bash(python3 -c ' *)",
+      "Bash(dart format *)",
+      "Bash(echo \"FORMAT_EXIT=$?\")",
+      "Bash(cd /Users/nafladiva/Documents/Projects/Flutter/asset-checker *)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
