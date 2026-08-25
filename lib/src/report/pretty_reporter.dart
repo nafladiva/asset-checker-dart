@@ -41,6 +41,8 @@ class PrettyReporter implements Reporter {
 
     if (result.findings.isEmpty) {
       buffer.writeln(_paint('No problems found.', _green));
+      buffer.writeln();
+      buffer.write(_renderHealth(summary));
       return buffer.toString();
     }
 
@@ -51,6 +53,55 @@ class PrettyReporter implements Reporter {
     buffer.writeln(_paint('Summary', _bold));
     buffer.writeln('  ${_summaryLine(summary)}');
     buffer.writeln('  ${_countsLine(summary)}');
+    buffer.writeln();
+    buffer.write(_renderHealth(summary));
+    return buffer.toString();
+  }
+
+  /// The headline number, with the breakdown that produced it — a bare
+  /// percentage nobody can account for is not actionable.
+  String _renderHealth(AuditSummary summary) {
+    final health = summary.health;
+    final colour = health.score >= 90
+        ? _green
+        : health.score >= 70
+            ? _yellow
+            : _red;
+
+    final buffer = StringBuffer()
+      ..writeln(_paint('Asset health', _bold))
+      ..writeln('  ${_paint(health.bar(), colour)}  '
+          '${_paint('${health.roundedScore}%', '$_bold$colour')}  '
+          '${_paint('(grade ${health.grade})', _dim)}');
+
+    final parts = <String>[
+      '${health.cleanAssets} clean',
+      if (health.assetsWithWarning > 0)
+        '${health.assetsWithWarning} with warnings',
+      if (health.assetsWithError > 0) '${health.assetsWithError} with errors',
+    ];
+    buffer.writeln(_paint(
+        '  ${parts.join(' · ')} '
+        'of ${health.totalAssets} asset${health.totalAssets == 1 ? '' : 's'}',
+        _dim));
+
+    if (health.projectLevelErrors > 0 || health.projectLevelWarnings > 0) {
+      final projectIssues =
+          health.projectLevelErrors + health.projectLevelWarnings;
+      buffer.writeln(_paint(
+          '  plus $projectIssues project-level '
+          'issue${projectIssues == 1 ? '' : 's'} not tied to a file on disk',
+          _dim));
+    }
+
+    if (health.reclaimableBytes > 0) {
+      buffer.writeln(_paint(
+          '  ${humanBytes(health.reclaimableBytes)} reclaimable '
+          '(${health.wastePercent.toStringAsFixed(1)}% of '
+          '${humanBytes(health.totalBytes)})',
+          _dim));
+    }
+
     return buffer.toString();
   }
 

@@ -52,6 +52,9 @@ ArgParser buildParser() {
         help: 'Lowest severity that exits non-zero.',
         allowed: <String>['none', 'warning', 'error'],
         defaultsTo: 'error')
+    ..addOption('min-health',
+        help: 'Exit non-zero if the health score falls below this (0-100).',
+        valueHelp: 'percent')
     ..addMultiOption('ignore',
         help: 'Glob of paths to skip. Repeatable.', valueHelp: 'glob')
     ..addFlag('delete-unused',
@@ -144,7 +147,17 @@ Future<int> runCli(
       }
     }
 
-    return result.shouldFail(config.failOn)
+    // The health gate is independent of --fail-on: a team may tolerate
+    // individual warnings while still refusing to let the tree get worse.
+    final int? minHealth = config.minHealth;
+    final health = AuditSummary.from(result).health;
+    final belowThreshold = minHealth != null && health.roundedScore < minHealth;
+    if (belowThreshold) {
+      stderrSink.writeln('Asset health ${health.roundedScore}% is below the '
+          'required $minHealth%.');
+    }
+
+    return result.shouldFail(config.failOn) || belowThreshold
         ? ExitCodes.findings
         : ExitCodes.success;
   } on ConfigException catch (e) {
@@ -189,6 +202,7 @@ AssetGuardConfig _resolveConfig(ArgResults results) {
     }(),
     failOn: failOn,
     clearFailOn: clearFailOn,
+    minHealth: _intOption(results, 'min-health', min: 0, max: 100),
     checks: results.multiOption('check').toSet(),
     format: OutputFormat.tryParse(results.option('format')!),
     output: results.option('output'),

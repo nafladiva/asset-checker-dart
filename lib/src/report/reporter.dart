@@ -1,5 +1,6 @@
 import '../models/finding.dart';
 import '../runner.dart';
+import 'health.dart';
 
 /// Renders an [AuditResult] as text. Implementations must be pure so output can
 /// be asserted in tests and diffed in CI.
@@ -23,6 +24,7 @@ class AuditSummary {
     required this.errorCount,
     required this.warningCount,
     required this.infoCount,
+    required this.health,
   });
 
   factory AuditSummary.from(AuditResult result) {
@@ -69,6 +71,7 @@ class AuditSummary {
       errorCount: result.errorCount,
       warningCount: result.warningCount,
       infoCount: result.infoCount,
+      health: HealthScore.from(result),
     );
   }
 
@@ -85,6 +88,9 @@ class AuditSummary {
   final int warningCount;
   final int infoCount;
 
+  /// Overall health of the asset tree, 0–100.
+  final HealthScore health;
+
   Map<String, Object?> toJson() => <String, Object?>{
         'assetCount': assetCount,
         'packageCount': packageCount,
@@ -98,6 +104,7 @@ class AuditSummary {
         'errors': errorCount,
         'warnings': warningCount,
         'info': infoCount,
+        'health': health.toJson(),
       };
 }
 

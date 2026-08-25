@@ -80,6 +80,12 @@ Dynamic references (1)
 Summary
   4 unused (972 B reclaimable), 2 duplicate groups, 2 similar groups
   2 errors, 11 warnings, 13 info, 2 possibly used (never deleted)
+
+Asset health
+  ██████████████░░░░░░  71%  (grade C)
+  7 clean · 3 with warnings of 10 assets
+  plus 1 project-level issue not tied to a file on disk
+  972 B reclaimable (8.4% of 11.3 KB)
 ```
 
 ---
@@ -173,6 +179,44 @@ parent is the entire point.
 
 ---
 
+## Asset health score
+
+A single 0–100 number for the state of the asset tree, plus a letter grade.
+It's designed to be trended over time and gated in CI.
+
+Every asset is worth one point, reduced by the worst finding against it:
+
+| Worst finding | Points |
+| --- | --- |
+| none | 1.0 |
+| warning | 0.5 |
+| error | 0.0 |
+
+The score is the average, as a percentage. Two rules keep it honest:
+
+**Info findings never reduce the score.** `POSSIBLY_USED_ASSET` is the audit
+being careful about a dynamic reference — scoring it would penalise you for
+patterns the tool deliberately supports, and would push people toward turning
+off `treat_dynamic_as_used`. PNG format hints are suggestions, not defects.
+
+**Findings with no file behind them still count.** A pubspec entry pointing at
+a missing directory belongs to no asset on disk. Without folding those in, a
+project with a broken pubspec could score 100%.
+
+Grades: **A** ≥ 90, **B** ≥ 80, **C** ≥ 70, **D** ≥ 60, **F** below.
+
+Gate it in CI with `--min-health`, which is **independent of `--fail-on`** — a
+team can tolerate individual warnings while still refusing to let the tree get
+worse:
+
+```bash
+dart run asset_guard --min-health 85
+```
+
+The reported reclaimable bytes count unused files only. Duplicate and
+near-duplicate groups are excluded because a human still has to choose which
+copy survives, so counting them would overstate what you can actually delete.
+
 ## Modular and monorepo projects
 
 Discovery is by pubspec, not by a hardcoded folder name: every `pubspec.yaml`
@@ -220,6 +264,7 @@ similarity_threshold: 5      # max Hamming distance, 0-64
 max_file_size_kb: 500
 max_hash_size_mb: 10         # skip perceptual hashing above this
 fail_on: error               # none | warning | error
+min_health: 85               # fail below this health score; omit to disable
 treat_dynamic_as_used: true  # dynamic paths mark assets possibly-used
 treat_unresolvable_as_wildcard: false
 ```
@@ -239,6 +284,7 @@ unused check entirely; such loads block deletion either way.
     --max-file-size-kb <int>     default 500
     --max-hash-size-mb <int>     default 10
     --fail-on <level>            none|warning|error (default error)
+    --min-health <percent>       exit non-zero below this health score (0-100)
     --ignore <glob>              repeatable
     --delete-unused              remove unreferenced files
     --[no-]dry-run               default on; --no-dry-run actually deletes
@@ -287,9 +333,10 @@ jobs:
 
       - run: flutter pub get
 
-      # Fails the job on errors. Drop to --fail-on warning once clean.
+      # Fails the job on errors, and if overall asset health regresses.
+      # Drop to --fail-on warning once the backlog is clean.
       - name: Audit assets
-        run: dart run asset_guard --fail-on error --no-color
+        run: dart run asset_guard --fail-on error --min-health 85 --no-color
 
       # Always publish the full report to the job summary, pass or fail.
       - name: Report
@@ -318,7 +365,24 @@ Stable contract, suitable for annotations:
   "schemaVersion": 1,
   "root": "/path/to/project",
   "packages": ["my_app"],
-  "summary": { "unused": 4, "reclaimableBytes": 972, "errors": 2, "...": 0 },
+  "summary": {
+    "unused": 4,
+    "reclaimableBytes": 972,
+    "errors": 2,
+    "health": {
+      "score": 71.4,
+      "grade": "C",
+      "totalAssets": 10,
+      "cleanAssets": 7,
+      "assetsWithWarning": 3,
+      "assetsWithError": 0,
+      "projectLevelErrors": 1,
+      "projectLevelWarnings": 0,
+      "reclaimableBytes": 972,
+      "totalBytes": 11534,
+      "wastePercent": 8.4
+    }
+  },
   "findings": [
     {
       "severity": "warning",

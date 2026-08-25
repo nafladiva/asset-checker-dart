@@ -29,6 +29,7 @@ export 'src/models/project_context.dart';
 export 'src/models/reference.dart';
 export 'src/pubspec_parser.dart';
 export 'src/reference_resolver.dart';
+export 'src/report/health.dart';
 export 'src/report/json_reporter.dart';
 export 'src/report/markdown_reporter.dart';
 export 'src/report/pretty_reporter.dart';

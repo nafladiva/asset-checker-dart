@@ -19,6 +19,11 @@ class MarkdownReporter implements Reporter {
       ..writeln()
       ..writeln('| Metric | Value |')
       ..writeln('| --- | --- |')
+      ..writeln('| **Asset health** | '
+          '**${summary.health.roundedScore}%** (grade ${summary.health.grade}) '
+          '`${summary.health.bar()}` |')
+      ..writeln('| Clean assets | '
+          '${summary.health.cleanAssets} / ${summary.health.totalAssets} |')
       ..writeln('| Unused | ${summary.unusedCount} |')
       ..writeln('| Reclaimable | ${humanBytes(summary.reclaimableBytes)} |')
       ..writeln('| Duplicate groups | ${summary.duplicateGroups} |')

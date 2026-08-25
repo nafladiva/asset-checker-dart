@@ -44,6 +44,7 @@ class AssetGuardConfig {
     this.maxFileSizeKb = 500,
     this.maxHashSizeBytes = 10 * 1024 * 1024,
     this.failOn = Severity.error,
+    this.minHealth,
     this.treatDynamicAsUsed = true,
     this.treatUnresolvableAsWildcard = false,
     this.checks = const <String>{'all'},
@@ -80,6 +81,12 @@ class AssetGuardConfig {
 
   /// `null` means `--fail-on none`: always exit 0.
   final Severity? failOn;
+
+  /// Minimum acceptable health score, 0–100. `null` disables the gate.
+  ///
+  /// Independent of [failOn]: a team can ignore individual warnings while
+  /// still refusing to let the tree get worse overall.
+  final int? minHealth;
 
   /// When true, a dynamic reference marks matching assets possibly-used rather
   /// than leaving them to be reported as unused.
@@ -121,6 +128,7 @@ class AssetGuardConfig {
     int? maxHashSizeBytes,
     Severity? failOn,
     bool clearFailOn = false,
+    int? minHealth,
     bool? treatDynamicAsUsed,
     bool? treatUnresolvableAsWildcard,
     Set<String>? checks,
@@ -139,6 +147,7 @@ class AssetGuardConfig {
       maxFileSizeKb: maxFileSizeKb ?? this.maxFileSizeKb,
       maxHashSizeBytes: maxHashSizeBytes ?? this.maxHashSizeBytes,
       failOn: clearFailOn ? null : (failOn ?? this.failOn),
+      minHealth: minHealth ?? this.minHealth,
       treatDynamicAsUsed: treatDynamicAsUsed ?? this.treatDynamicAsUsed,
       treatUnresolvableAsWildcard:
           treatUnresolvableAsWildcard ?? this.treatUnresolvableAsWildcard,
@@ -203,6 +212,7 @@ AssetGuardConfig loadConfigFile(String projectRoot) {
         _int(parsed['similarity_threshold'], 'similarity_threshold'),
     maxFileSizeKb: _int(parsed['max_file_size_kb'], 'max_file_size_kb'),
     maxHashSizeBytes: _mbToBytes(parsed['max_hash_size_mb']),
+    minHealth: _percent(parsed['min_health']),
     failOn: failOn,
     clearFailOn: rawFailOn != null &&
         rawFailOn.toString().trim().toLowerCase() == 'none',
@@ -230,6 +240,16 @@ int? _int(Object? value, String key) {
         'asset_guard.yaml: $key must be an integer (got "$value").');
   }
   return parsed;
+}
+
+int? _percent(Object? value) {
+  final percent = _int(value, 'min_health');
+  if (percent == null) return null;
+  if (percent < 0 || percent > 100) {
+    throw ConfigException(
+        'asset_guard.yaml: min_health must be between 0 and 100 (got $percent).');
+  }
+  return percent;
 }
 
 int? _mbToBytes(Object? value) {
